@@ -5,7 +5,7 @@ adaptive autonomy and off-road robotics group
 
 This repository now includes a context-aware runtime risk model in:
 
-- `/home/runner/work/aor_robotics_group/aor_robotics_group/runtime_risk_model.py`
+- `runtime_risk_model.py`
 
 Key capabilities:
 
@@ -17,6 +17,5 @@ Key capabilities:
 ### Run tests
 
 ```bash
-cd /home/runner/work/aor_robotics_group/aor_robotics_group
 python -m unittest discover -v
 ```
