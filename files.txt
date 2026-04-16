@@ -1,0 +1,42 @@
+here i will have all my learnings, no big file
+git clone https://gitlab.rhrk.uni-kl.de/aor-students/finroc/finroc_projects_scout.git
+always open bash in konsole,like terminal
+
+how to use github
+
+  git status, checks if its git folder
+  git pull origin main --> from gitlab updated
+  git checkout -b learnfinroc --> created new branch learnfinroc
+  git commit -m "done some change here"
+  git push origin learnfinroc --> pushed changes to my branch learnfinroc
+  git config --list --> here you can update email and name, as it gets labeled while you commit
+  git branch -a  --> to see all branches
+  git branch --> check which branch you are on
+
+ssh key generated
+    ssingh@hiwi-z890eaglewifi7-1:~/finroc$ ssh-keygen -t ed25519 -C "shubham.singh@edu.rptu.de"
+    Generating public/private ed25519 key pair.
+    Enter file in which to save the key (/home/ssingh/.ssh/id_ed25519):
+    Created directory '/home/ssingh/.ssh'.
+    Enter passphrase (empty for no passphrase):
+    Enter same passphrase again:
+    Your identification has been saved in /home/ssingh/.ssh/id_ed25519
+    Your public key has been saved in /home/ssingh/.ssh/id_ed25519.pub
+    The key fingerprint is:
+    SHA256:Nhe1qYAdK5MegiSIrdEsyKY2JG2w4//VWgSlI/eiEzc shubham.singh@edu.rptu.de
+    The key's randomart image is:
+    +--[ED25519 256]--+
+    |B*.     ..  .    |
+    |BB*.   +oo . o   |
+    |B=. ..*=+ . o    |
+    |++   oo++. o     |
+    |...  ..ESoo      |
+    |  .   +.=o       |
+    |   . o . o       |
+    |    . o o        |
+    |     . .         |
+    +----[SHA256]-----+
+
+
+
+
