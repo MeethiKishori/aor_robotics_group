@@ -12,6 +12,7 @@ how to use github
   git config --list --> here you can update email and name, as it gets labeled while you commit
   git branch -a  --> to see all branches
   git branch --> check which branch you are on
+  git checkout import --> will change branch to import from current branch
 
 ssh key generated
     ssingh@hiwi-z890eaglewifi7-1:~/finroc$ ssh-keygen -t ed25519 -C "shubham.singh@edu.rptu.de"
