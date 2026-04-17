@@ -13,6 +13,8 @@ how to use github
   git branch -a  --> to see all branches
   git branch --> check which branch you are on
   git checkout import --> will change branch to import from current branch
+  git add . for staging all my changes
+  git commit will commit all changes
 
 ssh key generated
     ssingh@hiwi-z890eaglewifi7-1:~/finroc$ ssh-keygen -t ed25519 -C "shubham.singh@edu.rptu.de"
