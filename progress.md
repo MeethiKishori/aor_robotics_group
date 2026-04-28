@@ -372,50 +372,66 @@ finstruct
 
 
 
-My comment
-continuous risk to discrete risk, that human can see via led or buzzer
-runtine risk modeling, object detectin to risk
-spatial proximity, hazardous object and dog motion
+## Personal Notes
 
-i have created realsense python wrapper to use camera, bcoz its originaly built in C++,
-so i did this
-    sudo apt install python3.12-venv
-    cd ~/Finroc/singh_files/realsense_camera  --created virtual env
-using https://github.com/realsenseai/librealsense
+### Safety Demo Design Observations
 
+- The pipeline converts **continuous risk** (distance values) to **discrete risk levels** that humans can perceive via LED or buzzer.
+- This is essentially **runtime risk modelling**: object detection feeds directly into risk assessment.
+- Risk is based on **spatial proximity** to hazardous objects (currently: persons; could extend to dogs, moving objects, etc.).
+
+---
+
+### RealSense Python Wrapper Setup
+
+The RealSense SDK is originally written in C++. To use it from Python, I set up a virtual environment using the Python bindings from [librealsense](https://github.com/IntelRealSense/librealsense).
+
+```bash
+sudo apt install python3.12-venv
+cd ~/Finroc/singh_files/aor_robotics_group/realsense_camera
+
+# Create and activate virtual environment
 python3 -m venv realsense_env
+source realsense_env/bin/activate
+```
 
-source realsense_env/bin/activate .--activated it
+Useful commands:
+- `realsense-viewer` — open the GUI camera viewer
+- `rs-enumerate-devices` — list all connected RealSense devices
 
-ope camera is realsense-viewer
+Camera confirmed working: ![Camera output](image.png)
 
-camera is working ![alt text](image.png)
+---
 
+### Standard C++ Build Workflow (CMake)
 
-rs-enumerate-devices to see all devices
+This is the pattern to follow for every C++ project:
 
+```bash
+mkdir build      # Create build directory
+cd build         # Enter build directory
+cmake ..         # Configure (looks for CMakeLists.txt in parent folder)
+make             # Compile
+```
 
-The Standard Workflow
+---
 
-This is the pattern you should follow for every C++ project:
+### How the RealSense D435i Works
 
-    Create the directory: mkdir build
+**Hardware components:**
+- 2 IR cameras (grayscale sensors)
+- 1 IR projector
+- 1 RGB camera
+- 1 IMU (inertial measurement unit, for motion tracking)
 
-    Enter the directory: cd build
+**Depth sensing process:**
+1. The IR projector casts a structured light pattern onto the scene.
+2. Both IR cameras capture the scene — the slight offset between them creates **disparity**.
+3. **Stereo matching** computes the disparity between the two IR images.
+4. **Triangulation** converts disparity into a depth value for each pixel.
 
-    Run CMake: cmake .. (The .. tells CMake to look in the parent folder for the CMakeLists.txt file).
+**IR camera characteristics:**
+- Captures grayscale images in a single wavelength band (~850 nm, near-infrared).
+- Each pixel in the depth frame stores the distance from the camera: `depth[x, y]` → distance in metres (e.g. `depth[100, 200]` → `0.83 m`).
 
-    Compile: make
-
-
-how realsense works
-2 ir camers, grayscale sensors
-1 ir projector
-1 rgb camera
-1 imu for motion tracking
-projector then via camera disparity called stereo matching, then triangulation we find depth of each pixel
-ir camera captures in grayscale , single wavelength band (near-IR ~850nm)
-dept frame has each pixel distance
-depth[x, y] = distance from camera  -->(100, 200) → 0.83 m
-
-so even if ir projetor is closed, ir camera works, bcoy of infrared in environmetn, it captures those wavelength
+**Note:** Even with the IR projector disabled, the IR cameras still function — they passively capture ambient infrared light from the environment.
