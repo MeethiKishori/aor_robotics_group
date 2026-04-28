@@ -35,5 +35,17 @@ alwaysregister new project in finroc
 ok , scout is running, in finstruct
 
 
+after i pulled latest changes, when camera was workig on dog, it gives below error
+      |                           ^~~~~~~~~~~~~~~
+make[1]: *** [Makefile.generated:33290: build/linux_x86_64_debug/libraries/camera/behaviors/mbbDisparityDegradation.o] Error 1
+make: *** [Makefile:50: build] Error 2
+ssingh@hiwi-z890eaglewifi7-1:~/Finroc/finroc$
+
+
+now solved after make
+ -lfinroc_plugins_runtime_construction -lfinroc_plugins_network_transport -lrrlib_mapping -lrrlib_machine_learning_appliance -lrrlib_geometry_basic_shapes -lrrlib_math_quaternion_legacy -lrrlib_localization_quaternion -lrrlib_canvas -lrrlib_coviroa_base -lrrlib_util_legacy -lrrlib_distance_data -lrrlib_distance_data_units -lfinroc_libraries_tree_stem_mapping_utils -lrrlib_distance_data_utils -lrrlib_mapping_transformations -lrrlib_tentacles -lfinroc_libraries_mapping_behaviors -lfinroc_libraries_localization_behaviors_utils -lrrlib_aspect_maps -lrrlib_mapping_transformations_clothoid -lrrlib_point_clouds -lrrlib_tentacles_i2bc -lrrlib_vehicle_kinematics
+done
+
+
 
 
