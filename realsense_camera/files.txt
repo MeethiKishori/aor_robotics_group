@@ -59,10 +59,16 @@ The RealSense SDK is originally written in C++. To use it from Python, I set up 
 sudo apt install python3.12-venv
 cd ~/Finroc/singh_files/aor_robotics_group/realsense_camera
 
+
+when workign with python in realsense : ac env is in realsense camera folder
+ssingh@hiwi-z890eaglewifi7-1:~/Finroc/singh_files/aor_robotics_group/realsense_camera$ source realsense_env/bin/activate
 # Create and activate virtual environment
 python3 -m venv realsense_env
 source realsense_env/bin/activate
 ```
+
+echo $VIRTUAL_ENV
+
 
 Useful commands:
 - `realsense-viewer` — open the GUI camera viewer
@@ -70,6 +76,7 @@ Useful commands:
 
 Camera confirmed working: ![Camera output](image.png)
 
+rs-save-to-disk
 ---
 
 ### Standard C++ Build Workflow (CMake)
@@ -104,3 +111,71 @@ make             # Compile
 - Each pixel in the depth frame stores the distance from the camera: `depth[x, y]` → distance in metres (e.g. `depth[100, 200]` → `0.83 m`).
 
 **Note:** Even with the IR projector disabled, the IR cameras still function — they passively capture ambient infrared light from the environment.
+
+
+how to run test_realsense.py
+
+---
+
+### How to build and run a RealSense C++ project (e.g. frame_check)
+
+Each C++ project has its own folder under cpp/ with a main.cpp and CMakeLists.txt.
+There is one shared build/ folder at the realsense_camera level.
+
+Steps (do this once to build):
+
+```bash
+cd ~/Finroc/singh_files/aor_robotics_group/realsense_camera/build
+cmake ..          # reads all CMakeLists.txt files and generates Makefiles
+make              # compiles all C++ projects
+```
+
+To run frame_check after building:
+
+```bash
+cd ~/Finroc/singh_files/aor_robotics_group/realsense_camera/build/frame_check
+./frame_check
+```
+
+If you add a new cpp/ subfolder with a CMakeLists.txt, always re-run cmake .. and make from the build/ folder.
+
+To rebuild only one project (faster):
+
+```bash
+cd ~/Finroc/singh_files/aor_robotics_group/realsense_camera/build/frame_check
+make
+./frame_check
+```
+
+
+
+### Next step: Risk scoring (0 to 10) using Depth + IMU
+
+--- DONE (v1 - basic prototype) ---
+- risk.py reads depth + IMU (accel) from D435i.
+- Computes d_front: nearest obstacle in center 30% of depth image (10th percentile).
+- Estimates camera speed from IMU accel integration (crude but functional).
+- Tracks closure rate: how fast d_front shrinks per second.
+  This detects moving obstacles even when the camera is completely still.
+- Effective speed = max(camera_speed, closure_rate).
+- Computes TTC = d_front / effective_speed.
+- Maps TTC + speed to a risk score 0-10.
+- Divides risk into three levels:
+    0-3 -> GREEN  LOW
+    4-6 -> YELLOW MODERATE
+    7-10 -> RED   DANGER
+- Prints live: [LEVEL] risk=X/10  dist=Xm  cam=Xm/s  closure=Xm/s  ttc=Xs
+
+Run:
+    cd ~/Finroc/singh_files/aor_robotics_group/realsense_camera
+    source realsense_env/bin/activate
+    cd python
+    python3 risk.py
+
+--- FUTURE IMPROVEMENTS (in order) ---
+1. Replace IMU-integrated speed with better odometry or VIO speed (IMU drift is an issue).
+2. Add stability penalty: high gyro (fast turning) adds +1 or +2 to risk.
+3. Tune TTC and speed thresholds after real driving tests on the robot.
+4. Use multiple depth ROIs (left/right/center) instead of only center, so side obstacles are caught.
+5. Publish risk value to Finroc port instead of just printing to terminal.
+6. Add depth-based direction of danger (not just a single number).
