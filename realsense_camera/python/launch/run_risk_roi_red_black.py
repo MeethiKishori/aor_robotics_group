@@ -1,7 +1,6 @@
 import os
 import sys
 import argparse
-import threading
 import time as _time_mod
 
 import cv2
@@ -14,6 +13,17 @@ if PYTHON_DIR not in sys.path:
     sys.path.insert(0, PYTHON_DIR)
 
 from perception.red_black_roi import detect_red_black_in_roi   # red/black detector module
+from actuators.usb_alert import (
+    CH341_BUZZER_OFF,
+    CH341_BUZZER_ON,
+    CH341_FLASH_FAST,
+    CH341_FLASH_NONE,
+    CH341_GREEN,
+    CH341_RED,
+    CH341_YELLOW,
+    UsbAlertOutput,
+    build_ch341_payload,
+)
 from camera.realsense_stream import start_aligned_pipeline
 from risk.risk_score import (
     compute_ttc_risk,
@@ -39,6 +49,13 @@ MIN_AREA = 10000   # minimum blob pixel area to count as a detection (increase t
 TOP_OBJECTS = 3    # draw/analyze only top strongest detections
 ASSUME_STABLE_CAMERA = True  # True: ignore IMU speed (avoids drift), use object closure only
 TEST_MODE = True #False     #: synthetic circle (no camera) | False: live RealSense camera
+USB_ALERT_PORT = "/dev/ttyUSB0"
+USB_ALERT_BAUD = 9600
+USB_ALERT_COMMANDS = {
+    "LOW": build_ch341_payload(CH341_GREEN, CH341_BUZZER_OFF, CH341_FLASH_NONE),
+    "MODERATE": build_ch341_payload(CH341_YELLOW, CH341_BUZZER_OFF, CH341_FLASH_FAST),
+    "DANGER": build_ch341_payload(CH341_RED, CH341_BUZZER_ON, CH341_FLASH_FAST),
+}
 
 
 # ──────────────────────────────────────────────
@@ -148,6 +165,10 @@ def main():
     parser.add_argument("--fps",          type=int, default=FPS)
     parser.add_argument("--test", action="store_true",
                         help="Synthetic mode: no camera, black circle oscillates with fake depth")
+    parser.add_argument("--usb-alert-port", default=USB_ALERT_PORT,
+                        help="Serial device for buzzer/light controller (empty disables it)")
+    parser.add_argument("--usb-alert-baud", type=int, default=USB_ALERT_BAUD,
+                        help="Baud rate for the USB buzzer/light controller")
     args = parser.parse_args()
 
     test_mode = args.test or TEST_MODE
@@ -159,6 +180,11 @@ def main():
     min_area = 500 if test_mode else MIN_AREA
 
     pipeline = align = None
+    usb_alert = UsbAlertOutput(
+        port=args.usb_alert_port,
+        baudrate=args.usb_alert_baud,
+        command_map=USB_ALERT_COMMANDS,
+    )
     if not test_mode:
         depth_w = max(320, args.depth_width)
         depth_h = max(240, args.depth_height)
@@ -302,6 +328,7 @@ def main():
             effective_speed = max(0.0, nearest_vz)
             risk, ttc = compute_ttc_risk(nearest, effective_speed)
             level, level_color = risk_label(risk)
+            usb_alert.send_level(level)
 
             # ── Draw multi-line status at top-left ────────────────────────────
             if nearest < float("inf"):
@@ -343,6 +370,7 @@ def main():
                 break
 
     finally:
+        usb_alert.close()
         if pipeline:
             pipeline.stop()
         cv2.destroyAllWindows()
