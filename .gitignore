@@ -1,5 +1,6 @@
 # Python virtual environments
 realsense_camera/realsense_env/
+realsense_camera/librealsense/
 
 # Python cache/bytecode
 __pycache__/
