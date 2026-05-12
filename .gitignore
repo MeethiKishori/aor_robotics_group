@@ -1,0 +1,9 @@
+# Python virtual environments
+realsense_camera/realsense_env/
+
+# Python cache/bytecode
+__pycache__/
+*.py[cod]
+
+# Local generated artifacts
+*.log
