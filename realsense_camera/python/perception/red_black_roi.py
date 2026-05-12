@@ -20,7 +20,7 @@ UPPER_RED_2 = np.array([180, 255, 255], dtype=np.uint8)   # H=180, S=255, V=255
 
 # Black: any hue (H=0-180), any saturation (S=0-255), but very low brightness (V=0-55)
 LOWER_BLACK = np.array([0,   0,   0], dtype=np.uint8)     # H=any, S=any, V=0
-UPPER_BLACK = np.array([180, 255, 55], dtype=np.uint8)    # H=any, S=any, V=55 (dark only)
+UPPER_BLACK = np.array([180, 255, 55], dtype=np.uint8)    # H=any, S=any, V=30 (dark only) 55--> 30-->55 for more strict black
 
 # Morphology kernel: 5x5 block used to clean up noisy masks.
 # OPEN  = erode then dilate  -> removes small white dots (noise)

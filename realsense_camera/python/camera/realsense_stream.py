@@ -8,34 +8,19 @@ def start_aligned_pipeline(
     depth_width,
     depth_height,
     fps,
-    try_imu=True,
 ):
-    """Start RealSense pipeline and return (pipeline, align, use_imu)."""
+    """Start RealSense pipeline with color+depth+IMU and return (pipeline, align)."""
     pipeline = rs.pipeline()
     config = rs.config()
 
     config.enable_stream(rs.stream.color, color_width, color_height, rs.format.bgr8, fps)
     config.enable_stream(rs.stream.depth, depth_width, depth_height, rs.format.z16, fps)
-
-    use_imu = bool(try_imu)
-    if use_imu:
-        try:
-            config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 250)
-            config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 200)
-            pipeline.start(config)
-        except RuntimeError as e:
-            if "Couldn't resolve requests" not in str(e):
-                raise
-            use_imu = False
-
-    if not use_imu:
-        config = rs.config()
-        config.enable_stream(rs.stream.color, color_width, color_height, rs.format.bgr8, fps)
-        config.enable_stream(rs.stream.depth, depth_width, depth_height, rs.format.z16, fps)
-        pipeline.start(config)
+    config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 250)
+    config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 200)
+    pipeline.start(config)
 
     align = rs.align(rs.stream.color)
-    return pipeline, align, use_imu
+    return pipeline, align
 
 
 def read_accel_magnitude(frames, fallback=0.0):
