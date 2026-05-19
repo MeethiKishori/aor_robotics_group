@@ -162,3 +162,8 @@ make
 
 
 how to run launch - python3 python/launch/run_risk_roi_red_black.py
+
+
+hex_usb uses hex command to sent to usb and run the led and buzzer together
+
+run_tower.py and it will check if tower works fine

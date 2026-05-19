@@ -13,17 +13,7 @@ if PYTHON_DIR not in sys.path:
     sys.path.insert(0, PYTHON_DIR)
 
 from perception.red_black_roi import detect_red_black_in_roi   # red/black detector module
-from actuators.usb_alert import (
-    CH341_BUZZER_OFF,
-    CH341_BUZZER_ON,
-    CH341_FLASH_FAST,
-    CH341_FLASH_NONE,
-    CH341_GREEN,
-    CH341_RED,
-    CH341_YELLOW,
-    UsbAlertOutput,
-    build_ch341_payload,
-)
+from actuators.tower import SignalTowerController
 from camera.realsense_stream import start_aligned_pipeline
 from risk.risk_score import (
     compute_ttc_risk,
@@ -31,7 +21,7 @@ from risk.risk_score import (
     risk_label,
     select_strongest_detections,
 )
-from risk.runtime import RiskRuntimeState
+from risk.runtime import RiskRuntimeState       
 
 
 # ======================
@@ -49,13 +39,28 @@ MIN_AREA = 10000   # minimum blob pixel area to count as a detection (increase t
 TOP_OBJECTS = 3    # draw/analyze only top strongest detections
 ASSUME_STABLE_CAMERA = True  # True: ignore IMU speed (avoids drift), use object closure only
 TEST_MODE = True #False     #: synthetic circle (no camera) | False: live RealSense camera
-USB_ALERT_PORT = "/dev/ttyUSB0"
-USB_ALERT_BAUD = 9600
-USB_ALERT_COMMANDS = {
-    "LOW": build_ch341_payload(CH341_GREEN, CH341_BUZZER_OFF, CH341_FLASH_NONE),
-    "MODERATE": build_ch341_payload(CH341_YELLOW, CH341_BUZZER_OFF, CH341_FLASH_FAST),
-    "DANGER": build_ch341_payload(CH341_RED, CH341_BUZZER_ON, CH341_FLASH_FAST),
-}
+TOWER_PORT = "/dev/ttyUSB0"
+TOWER_BAUD = 9600
+
+
+# ──────────────────────────────────────────────
+# TOWER STATE HELPER
+# ──────────────────────────────────────────────
+
+def set_tower_state(tower, risk_level):
+    """Map risk level to tower light, buzzer, and flash states."""
+    if risk_level == "LOW":
+        tower.green()
+        tower.buzzer(False)
+        tower.flash(1)  # 1 = continuous/solid
+    elif risk_level == "MODERATE":
+        tower.yellow()
+        tower.buzzer(False)
+        tower.flash(3)  # 3 = fast flash
+    elif risk_level == "DANGER":
+        tower.red()
+        tower.buzzer(True)
+        tower.flash(3)  # 3 = fast flash
 
 
 # ──────────────────────────────────────────────
@@ -139,12 +144,12 @@ def make_test_frame(width, height, black_scale, red_scale):
     br = max(20, int(60 * black_scale))
     bx, by = width // 3, height // 2
     cv2.circle(img, (bx, by), br, (0, 0, 0), -1)
-    # Red circle — right-center
+""" # Red circle — right-center
     rr = max(20, int(55 * red_scale))
     rx, ry = 2 * width // 3, height // 2
     cv2.circle(img, (rx, ry), rr, (0, 0, 200), -1)
     return img
-
+"""
 
 def approach_to_depth(approach_scale):
     """Map approach_scale [0.8 .. 2.6] → depth [3.0 .. 0.1] m."""
@@ -165,10 +170,10 @@ def main():
     parser.add_argument("--fps",          type=int, default=FPS)
     parser.add_argument("--test", action="store_true",
                         help="Synthetic mode: no camera, black circle oscillates with fake depth")
-    parser.add_argument("--usb-alert-port", default=USB_ALERT_PORT,
-                        help="Serial device for buzzer/light controller (empty disables it)")
-    parser.add_argument("--usb-alert-baud", type=int, default=USB_ALERT_BAUD,
-                        help="Baud rate for the USB buzzer/light controller")
+    parser.add_argument("--tower-port", default=TOWER_PORT,
+                        help="Serial device for tower light/buzzer (empty disables it)")
+    parser.add_argument("--tower-baud", type=int, default=TOWER_BAUD,
+                        help="Baud rate for the tower light/buzzer")
     args = parser.parse_args()
 
     test_mode = args.test or TEST_MODE
@@ -180,11 +185,13 @@ def main():
     min_area = 500 if test_mode else MIN_AREA
 
     pipeline = align = None
-    usb_alert = UsbAlertOutput(
-        port=args.usb_alert_port,
-        baudrate=args.usb_alert_baud,
-        command_map=USB_ALERT_COMMANDS,
-    )
+    tower = None
+    try:
+        tower = SignalTowerController(port=args.tower_port, baudrate=args.tower_baud)
+    except Exception as e:
+        print(f"Warning: Failed to initialize tower controller on {args.tower_port}: {e}")
+        print("Tower control disabled; risk pipeline will run without LED/buzzer output.")
+    
     if not test_mode:
         depth_w = max(320, args.depth_width)
         depth_h = max(240, args.depth_height)
@@ -328,7 +335,8 @@ def main():
             effective_speed = max(0.0, nearest_vz)
             risk, ttc = compute_ttc_risk(nearest, effective_speed)
             level, level_color = risk_label(risk)
-            usb_alert.send_level(level)
+            if tower:
+                set_tower_state(tower, level)
 
             # ── Draw multi-line status at top-left ────────────────────────────
             if nearest < float("inf"):
@@ -370,7 +378,8 @@ def main():
                 break
 
     finally:
-        usb_alert.close()
+        if tower:
+            tower.close()
         if pipeline:
             pipeline.stop()
         cv2.destroyAllWindows()
