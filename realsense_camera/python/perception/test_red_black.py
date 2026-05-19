@@ -25,12 +25,12 @@ UPPER_BLACK = np.array([180, 255, 55], dtype=np.uint8)
 
 
 def robust_distance_m(depth_frame, x, y, w, h):
-    """Estimate distance using median depth in a small center patch of the box."""
+    """finds the centre of the bounding box."""
     cx = x + w // 2
     cy = y + h // 2
 
-    pw = max(3, w // 5)
-    ph = max(3, h // 5)
+    pw = max(3, w // 5) # patch width = 1/5 of box width, minimum 3 pixels
+    ph = max(3, h // 5) # patch height = 1/5 of box height, minimum 3 pixels
     x1 = max(0, cx - pw // 2)
     y1 = max(0, cy - ph // 2)
     x2 = min(WIDTH - 1, cx + pw // 2)

@@ -10,16 +10,16 @@ def start_aligned_pipeline(
     fps,
 ):
     """Start RealSense pipeline with color+depth+IMU and return (pipeline, align)."""
-    pipeline = rs.pipeline()
-    config = rs.config()
+    pipeline = rs.pipeline() # Create a RealSense pipeline
+    config = rs.config() # Create a configuration for the pipeline
 
-    config.enable_stream(rs.stream.color, color_width, color_height, rs.format.bgr8, fps)
+    config.enable_stream(rs.stream.color, color_width, color_height, rs.format.bgr8, fps) 
     config.enable_stream(rs.stream.depth, depth_width, depth_height, rs.format.z16, fps)
     config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 250)
     config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 200)
     pipeline.start(config)
 
-    align = rs.align(rs.stream.color)
+    align = rs.align(rs.stream.color) # Create an align object to align depth frames to color frames
     return pipeline, align
 
 

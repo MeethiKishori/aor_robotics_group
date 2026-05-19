@@ -25,7 +25,7 @@ UPPER_BLACK = np.array([180, 255, 55], dtype=np.uint8)    # H=any, S=any, V=30 (
 # Morphology kernel: 5x5 block used to clean up noisy masks.
 # OPEN  = erode then dilate  -> removes small white dots (noise)
 # CLOSE = dilate then erode  -> fills small holes inside objects
-KERNEL = np.ones((5, 5), np.uint8)
+KERNEL = np.ones((5, 5), np.uint8) # for now
 
 
 def _mask_red(hsv_img):

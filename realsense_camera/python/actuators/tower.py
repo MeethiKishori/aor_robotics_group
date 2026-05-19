@@ -43,7 +43,7 @@ class SignalTowerController:
     # --- BUZZER ---
     def buzzer(self, state: bool):
         """Enable or disable buzzer. True = On (0x02), False = Off (0x01)."""
-        self._current_buzzer = "02" if state else "01"
+        #self._current_buzzer = "02" if state else "01"
         self._update_tower()
 
     # --- FLASH FREQUENCY ---

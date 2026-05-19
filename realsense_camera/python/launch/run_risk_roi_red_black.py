@@ -1,14 +1,13 @@
 import os
 import sys
 import argparse
-import time as _time_mod
 
 import cv2
 import numpy as np
 
-# Allow imports from ../perception when run as a script.
-THIS_DIR   = os.path.dirname(os.path.abspath(__file__))
-PYTHON_DIR = os.path.dirname(THIS_DIR)
+# Allow imports from ../perception when run as a script. it helps in running script from anywhere without worrying is im at correct cd 
+THIS_DIR   = os.path.dirname(os.path.abspath(__file__)) # curret file to absolute path from root , keeps only the folder name uptill launch THIS_DIR: "/home/ssingh/.../realsense_camera/python/launch"
+PYTHON_DIR = os.path.dirname(THIS_DIR)  # it takes the directory name just one folder up PYTHON_DIR: "/home/ssingh/.../realsense_camera/python"
 if PYTHON_DIR not in sys.path:
     sys.path.insert(0, PYTHON_DIR)
 
@@ -38,7 +37,6 @@ ROI_FRAC = 0.70    # fraction of image used as center ROI (0.30 to 0.50)
 MIN_AREA = 10000   # minimum blob pixel area to count as a detection (increase to ignore small blobs)
 TOP_OBJECTS = 3    # draw/analyze only top strongest detections
 ASSUME_STABLE_CAMERA = True  # True: ignore IMU speed (avoids drift), use object closure only
-TEST_MODE = True #False     #: synthetic circle (no camera) | False: live RealSense camera
 TOWER_PORT = "/dev/ttyUSB0"
 TOWER_BAUD = 9600
 
@@ -51,16 +49,16 @@ def set_tower_state(tower, risk_level):
     """Map risk level to tower light, buzzer, and flash states."""
     if risk_level == "LOW":
         tower.green()
-        tower.buzzer(False)
-        tower.flash(1)  # 1 = continuous/solid
+        #tower.buzzer(False)
+        #tower.flash(1)  # 1 = continuous/solid
     elif risk_level == "MODERATE":
         tower.yellow()
         tower.buzzer(False)
-        tower.flash(3)  # 3 = fast flash
+        #tower.flash(3)  # 3 = fast flash
     elif risk_level == "DANGER":
         tower.red()
-        tower.buzzer(True)
-        tower.flash(3)  # 3 = fast flash
+        #tower.buzzer(True)
+       # tower.flash(3)  # 3 = fast flash
 
 
 # ──────────────────────────────────────────────
@@ -117,47 +115,6 @@ def draw_object_overlay(frame, x, y, w, h, color, line1, line2):
 
 
 # ──────────────────────────────────────────────
-# SYNTHETIC TEST HELPERS
-# ──────────────────────────────────────────────
-
-class FakeDepthFrame:
-    """Duck-typed depth frame: returns depth of nearest circle region at (x,y)."""
-    def __init__(self, regions):
-        # regions: list of (cx, cy, radius, depth_m)
-        self._regions = regions
-
-    def get_distance(self, x, y):
-        best_depth = 0.0
-        best_dist2 = float("inf")
-        for (cx, cy, r, depth_m) in self._regions:
-            d2 = (x - cx) ** 2 + (y - cy) ** 2
-            if d2 < best_dist2:
-                best_dist2 = d2
-                best_depth = depth_m
-        return best_depth
-
-
-def make_test_frame(width, height, black_scale, red_scale):
-    """White frame with a black circle (left) and red circle (right)."""
-    img = np.full((height, width, 3), 255, dtype=np.uint8)
-    # Black circle — left-center
-    br = max(20, int(60 * black_scale))
-    bx, by = width // 3, height // 2
-    cv2.circle(img, (bx, by), br, (0, 0, 0), -1)
-""" # Red circle — right-center
-    rr = max(20, int(55 * red_scale))
-    rx, ry = 2 * width // 3, height // 2
-    cv2.circle(img, (rx, ry), rr, (0, 0, 200), -1)
-    return img
-"""
-
-def approach_to_depth(approach_scale):
-    """Map approach_scale [0.8 .. 2.6] → depth [3.0 .. 0.1] m."""
-    t = (approach_scale - 0.8) / (2.6 - 0.8)
-    return 3.0 - t * 2.99
-
-
-# ──────────────────────────────────────────────
 # MAIN LOOP
 # ──────────────────────────────────────────────
 
@@ -168,21 +125,15 @@ def main():
     parser.add_argument("--depth-width",  type=int, default=DEPTH_WIDTH)
     parser.add_argument("--depth-height", type=int, default=DEPTH_HEIGHT)
     parser.add_argument("--fps",          type=int, default=FPS)
-    parser.add_argument("--test", action="store_true",
-                        help="Synthetic mode: no camera, black circle oscillates with fake depth")
     parser.add_argument("--tower-port", default=TOWER_PORT,
                         help="Serial device for tower light/buzzer (empty disables it)")
     parser.add_argument("--tower-baud", type=int, default=TOWER_BAUD,
                         help="Baud rate for the tower light/buzzer")
     args = parser.parse_args()
 
-    test_mode = args.test or TEST_MODE
     color_w = max(320, args.color_width)
     color_h = max(240, args.color_height)
     fps     = max(1, args.fps)
-
-    # Effective min_area: smaller for test (circle starts small)
-    min_area = 500 if test_mode else MIN_AREA
 
     pipeline = align = None
     tower = None
@@ -191,84 +142,37 @@ def main():
     except Exception as e:
         print(f"Warning: Failed to initialize tower controller on {args.tower_port}: {e}")
         print("Tower control disabled; risk pipeline will run without LED/buzzer output.")
-    
-    if not test_mode:
-        depth_w = max(320, args.depth_width)
-        depth_h = max(240, args.depth_height)
-        pipeline, align = start_aligned_pipeline(color_w, color_h, depth_w, depth_h, fps)
+
+    depth_w = max(320, args.depth_width)
+    depth_h = max(240, args.depth_height)
+    pipeline, align = start_aligned_pipeline(color_w, color_h, depth_w, depth_h, fps)
 
     state   = RiskRuntimeState()
+    min_area = MIN_AREA
 
-    # Synthetic oscillation state — black and red oscillate independently
-    black_scale = 1.0;  black_dir = 1.0;  black_speed = 0.6
-    red_scale   = 1.5;  red_dir   = 1.0;  red_speed   = 0.9   # red starts closer, faster
-    last_t = _time_mod.monotonic()
-
-    mode_label = "TEST (synthetic)" if test_mode else f"LIVE {color_w}x{color_h}"
+    mode_label = f"LIVE {color_w}x{color_h}"
     print(f"Running: {mode_label} | Press q to quit.")
-    if test_mode:
-        print("  BLACK circle left, RED circle right.  +/- black speed,  [/] red speed,  q quit.")
 
     try:
         while True:
-            if test_mode:
-                # ── Synthetic frame + depth ───────────────────────────────
-                now = _time_mod.monotonic()
-                dt  = max(now - last_t, 1e-3)
-                last_t = now
+            # ── Live camera frame ─────────────────────────────────────
+            frames = pipeline.wait_for_frames()
+            frames = align.process(frames)
+            color_frame = frames.get_color_frame()
+            depth_frame = frames.get_depth_frame()
+            if not color_frame or not depth_frame:
+                continue
 
-                black_scale += black_dir * black_speed * dt
-                if black_scale > 2.6: black_scale = 2.6; black_dir = -1.0
-                if black_scale < 0.8: black_scale = 0.8; black_dir =  1.0
+            dt        = state.next_dt()
+            frame     = np.asanyarray(color_frame.get_data())
+            depth_src = depth_frame
 
-                red_scale += red_dir * red_speed * dt
-                if red_scale > 2.6: red_scale = 2.6; red_dir = -1.0
-                if red_scale < 0.8: red_scale = 0.8; red_dir =  1.0
-
-                frame = make_test_frame(color_w, color_h, black_scale, red_scale)
-
-                # Each circle region gets its own depth
-                bx, by = color_w // 3,     color_h // 2
-                rx, ry = 2 * color_w // 3, color_h // 2
-                br = max(20, int(60 * black_scale))
-                rr = max(20, int(55 * red_scale))
-                depth_src = FakeDepthFrame([
-                    (bx, by, br, approach_to_depth(black_scale)),
-                    (rx, ry, rr, approach_to_depth(red_scale)),
-                ])
-
-                key = cv2.waitKey(int(1000 / fps)) & 0xFF
-                if key == ord('q'):
-                    break
-                if key in (ord('+'), ord('=')):
-                    black_speed = min(4.0, black_speed + 0.1)
-                if key in (ord('-'), ord('_')):
-                    black_speed = max(0.1, black_speed - 0.1)
-                if key == ord(']'):
-                    red_speed = min(4.0, red_speed + 0.1)
-                if key == ord('['):
-                    red_speed = max(0.1, red_speed - 0.1)
-
-            else:
-                # ── Live camera frame ─────────────────────────────────────
-                frames = pipeline.wait_for_frames()
-                frames = align.process(frames)
-                color_frame = frames.get_color_frame()
-                depth_frame = frames.get_depth_frame()
-                if not color_frame or not depth_frame:
-                    continue
-
-                dt        = state.next_dt()
-                frame     = np.asanyarray(color_frame.get_data())
-                depth_src = depth_frame
-
-                key = cv2.waitKey(1) & 0xFF
-                if key == ord('q'):
-                    break
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
+                break
 
             h, w = frame.shape[:2]
-            if not test_mode:
-                dt = state.next_dt()
+            dt = state.next_dt()
             roi   = roi_rect_from_frac(w, h, ROI_FRAC)
             x1, y1, x2, y2 = roi
 

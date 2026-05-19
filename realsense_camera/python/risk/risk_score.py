@@ -1,8 +1,8 @@
-def risk_from_distance(distance_m):
+def distance_risk(distance_m):
     # Convert nearest detected object distance (metres) to a risk score 0-10.
     # Closer = higher risk. These thresholds are easy to tune.
     if distance_m <= 0:
-        return 0       # 0 means no valid depth reading, treat as safe
+        return 0       # no valid depth reading, treat as safe
 
     if distance_m < 0.40:
         return 10      # under 40 cm -> critical, very close
@@ -13,6 +13,10 @@ def risk_from_distance(distance_m):
     if distance_m < 2.00:
         return 3       # 1.2 - 2 m -> low risk
     return 1           # over 2 m -> almost safe (1 not 0 because object is still visible)
+
+
+def risk_from_distance(distance_m):
+    return distance_risk(distance_m)
 
 
 def nearest_distance_from_detections(detections, allowed_labels=("RED", "BLACK")):
@@ -81,33 +85,14 @@ def compute_ttc_risk(distance_m, speed_mps):
     else:
         risk_speed = 10     # very fast (running / vehicle)
 
-    # Distance contribution (20% weight) — raises alarm even for slow/static close objects.
-    if distance_m < 0.20:
-        risk_dist = 10      # under 20 cm: critical
-    elif distance_m < 0.40:
-        risk_dist = 8       # 20–40 cm: very close
-    elif distance_m < 1.0:
-        risk_dist = 5       # 40 cm – 1.0 m: moderate
-    elif distance_m < 2.00:
-        risk_dist = 2       # 1.0 – 2 m: low
-    else:
-        risk_dist = 0       # over 2 m: safe
+    # Distance contribution (20% weight) — uses the shared distance-risk component.
+    risk_dist = distance_risk(distance_m)
 
     risk = round(0.6 * risk_ttc + 0.2 * risk_speed + 0.2 * risk_dist)
     risk = int(max(0, min(10, risk)))
 
-    # Pure distance score — runs in parallel, not blended.
-    # Whichever is more dangerous (formula vs distance alone) wins.
-    if distance_m < 0.40:
-        dist_only = 9
-    elif distance_m < 0.70:
-        dist_only = 6
-    elif distance_m < 1.20:
-        dist_only = 3
-    else:
-        dist_only = 0
-
-    risk = max(risk, dist_only)
+    # Ensure a critical close distance cannot be masked by low TTC/speed.
+    risk = max(risk, risk_dist)
 
     return int(risk), float(ttc)
 
