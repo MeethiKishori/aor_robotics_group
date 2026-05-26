@@ -1,0 +1,10 @@
+black:
+  sat_max: 125
+  val_max: 28
+detection:
+  min_area: 5000
+red:
+  hue1_low: 0
+  hue2_low: 64
+  sat_min: 181
+  val_min: 19

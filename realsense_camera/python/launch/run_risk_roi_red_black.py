@@ -4,6 +4,7 @@ import argparse
 
 import cv2
 import numpy as np
+import yaml
 
 # Allow imports from ../perception when run as a script. it helps in running script from anywhere without worrying is im at correct cd 
 THIS_DIR   = os.path.dirname(os.path.abspath(__file__)) # curret file to absolute path from root , keeps only the folder name uptill launch THIS_DIR: "/home/ssingh/.../realsense_camera/python/launch"
@@ -28,26 +29,63 @@ from risk.runtime import RiskRuntimeState
 
 
 # ──────────────────────────────────────────────
-# HSV SLIDER WINDOWS
+# HSV SLIDER WINDOWS  +  YAML CONFIG PERSISTENCE
 # ──────────────────────────────────────────────
 
 WIN_RED   = 'Tune RED'
 WIN_BLACK = 'Tune BLACK'
 
+# Config file sits next to this launch script so it's easy to find and edit.
+HSV_CONFIG_PATH = os.path.join(THIS_DIR, "hsv_config.yaml")
 
-def create_sliders():
+_DEFAULTS = {
+    "red":        {"hue1_low": int(LOWER_RED_1[0]), "hue2_low": int(LOWER_RED_2[0]),
+                   "sat_min":  int(LOWER_RED_1[1]), "val_min":  int(LOWER_RED_1[2])},
+    "black":      {"sat_max": int(UPPER_BLACK[1]), "val_max": int(UPPER_BLACK[2])},
+    "detection":  {"min_area": 300},
+}
+
+
+def load_hsv_config():
+    if os.path.exists(HSV_CONFIG_PATH):
+        with open(HSV_CONFIG_PATH, "r") as f:
+            cfg = yaml.safe_load(f) or {}
+        print(f"Loaded HSV config from {HSV_CONFIG_PATH}")
+    else:
+        cfg = {}
+        print(f"No config found at {HSV_CONFIG_PATH} — using defaults.")
+    # Merge with defaults so missing keys never crash.
+    r = {**_DEFAULTS["red"],       **cfg.get("red", {})}
+    b = {**_DEFAULTS["black"],     **cfg.get("black", {})}
+    d = {**_DEFAULTS["detection"], **cfg.get("detection", {})}
+    return r, b, d
+
+
+def save_hsv_config(h_l1, h_l2, s_min, v_min, b_sat, b_val, min_area):
+    cfg = {
+        "red":       {"hue1_low": h_l1, "hue2_low": h_l2,
+                      "sat_min":  s_min, "val_min":  v_min},
+        "black":     {"sat_max": b_sat, "val_max": b_val},
+        "detection": {"min_area": min_area},
+    }
+    with open(HSV_CONFIG_PATH, "w") as f:
+        yaml.dump(cfg, f, default_flow_style=False)
+    print(f"HSV config saved to {HSV_CONFIG_PATH}")
+
+
+def create_sliders(r, b, d):
     cv2.namedWindow(WIN_RED, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(WIN_RED, 700, 700)
-    cv2.createTrackbar('Hue1-Low  orange-red (0-20)',  WIN_RED, int(LOWER_RED_1[0]), 20,  lambda x: None)
-    cv2.createTrackbar('Hue2-Low  pink-red  (0-180)',  WIN_RED, int(LOWER_RED_2[0]), 180, lambda x: None)
-    cv2.createTrackbar('Sat-Min   vividness (0-255)',  WIN_RED, int(LOWER_RED_1[1]), 255, lambda x: None)
-    cv2.createTrackbar('Val-Min   brightness(0-255)',  WIN_RED, int(LOWER_RED_1[2]), 255, lambda x: None)
+    cv2.createTrackbar('Hue1-Low  orange-red (0-20)',  WIN_RED, r["hue1_low"], 20,  lambda x: None)
+    cv2.createTrackbar('Hue2-Low  pink-red  (0-180)',  WIN_RED, r["hue2_low"], 180, lambda x: None)
+    cv2.createTrackbar('Sat-Min   vividness (0-255)',  WIN_RED, r["sat_min"],  255, lambda x: None)
+    cv2.createTrackbar('Val-Min   brightness(0-255)',  WIN_RED, r["val_min"],  255, lambda x: None)
 
     cv2.namedWindow(WIN_BLACK, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(WIN_BLACK, 700, 700)
-    cv2.createTrackbar('Sat-Max   vividness (0-255)',  WIN_BLACK, int(UPPER_BLACK[1]), 255, lambda x: None)
-    cv2.createTrackbar('Val-Max   darkness  (0-100)',  WIN_BLACK, int(UPPER_BLACK[2]), 100, lambda x: None)
-    cv2.createTrackbar('Min-Area  blob size (0-5000)', WIN_BLACK, 300,                5000, lambda x: None)
+    cv2.createTrackbar('Sat-Max   vividness (0-255)',  WIN_BLACK, b["sat_max"],   255,  lambda x: None)
+    cv2.createTrackbar('Val-Max   darkness  (0-100)',  WIN_BLACK, b["val_max"],   100,  lambda x: None)
+    cv2.createTrackbar('Min-Area  blob size (0-5000)', WIN_BLACK, d["min_area"],  5000, lambda x: None)
 
     blank = np.zeros((480, 640, 3), dtype=np.uint8)
     cv2.putText(blank, "Waiting for camera...", (60, 240),
@@ -220,7 +258,8 @@ def main():
 
     state   = RiskRuntimeState()
 
-    create_sliders()
+    r_cfg, b_cfg, d_cfg = load_hsv_config()
+    create_sliders(r_cfg, b_cfg, d_cfg)
 
     mode_label = f"LIVE {color_w}x{color_h}"
     print(f"Running: {mode_label} | Press q to quit.")
@@ -368,6 +407,12 @@ def main():
                 break
 
     finally:
+        # Save slider values so next run starts from where you left off.
+        try:
+            h_l1, h_l2, s_min, v_min, b_sat, b_val, min_area = read_sliders()
+            save_hsv_config(h_l1, h_l2, s_min, v_min, b_sat, b_val, min_area)
+        except Exception:
+            pass
         if tower:
             tower.close()
         if pipeline:
