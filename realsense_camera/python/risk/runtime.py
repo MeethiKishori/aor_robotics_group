@@ -11,7 +11,16 @@ class RiskRuntimeState:
         self.prev_target_distance = float("inf")
         self.prev_object_distances = {}
         self.prev_object_measurements = {}
+        self.smoothed_velocities = {}   # EMA-smoothed per-object approach velocity
         self.last_t = time.time()
+
+    def smooth_velocity(self, obj_key, raw_vz, alpha=0.2):
+        # Exponential moving average: 20% new raw value, 80% previous smooth.
+        # Stationary jitter averages to ~0; real movement builds up over frames.
+        prev = self.smoothed_velocities.get(obj_key, 0.0)
+        smoothed = alpha * raw_vz + (1.0 - alpha) * prev
+        self.smoothed_velocities[obj_key] = smoothed
+        return smoothed
 
     def next_dt(self):
         now = time.time()
@@ -54,6 +63,9 @@ class RiskRuntimeState:
         }
         self.prev_object_measurements = {
             k: v for k, v in self.prev_object_measurements.items() if k in keys
+        }
+        self.smoothed_velocities = {
+            k: v for k, v in self.smoothed_velocities.items() if k in keys
         }
 
     def compute_object_velocity_3d(self, object_key, cx, cy, distance_m, dt, fx, fy):

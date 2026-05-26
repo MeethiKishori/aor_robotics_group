@@ -42,58 +42,33 @@ def select_strongest_detections(detections, max_count=3, allowed_labels=("RED", 
 
         dist = float(d.get("distance_m", 0.0))
         area = float(d.get("area", 0.0))
-        if dist <= 0 or area <= 0:
+        if area <= 0:
             continue
 
-        # Close objects and larger blobs get priority.
-        strength = area / max(dist, 0.10)
+        # Unknown depth (0) treated as a close unknown — use a conservative 0.5 m proxy
+        # so the object still participates in risk ranking rather than being dropped.
+        effective_dist = dist if dist > 0 else 0.5
+        strength = area / max(effective_dist, 0.10)
         scored.append((strength, d))
 
     scored.sort(key=lambda x: x[0], reverse=True)
     return [item[1] for item in scored[:max_count]]
 
 
-def compute_ttc_risk(distance_m, speed_mps):
-    # Risk model blending TTC + speed + distance (0-10).
+def compute_ttc_risk(distance_m, speed_mps=0.0):
     if distance_m == float("inf"):
         return 0, float("inf")
 
-    # TTC = time to collision.
-    ttc = distance_m / max(speed_mps, 0.05)
+    # speed=0 → stationary, TTC=inf, risk from distance only.
+    if speed_mps <= 0:
+        return int(distance_risk(distance_m)), float("inf")
 
-    # TTC contribution (60% weight).
+    ttc  = distance_m / speed_mps
+    risk = distance_risk(distance_m)
     if ttc < 2.0:
-        risk_ttc = 10
+        risk = min(10, risk + 4)
     elif ttc < 4.0:
-        risk_ttc = 8
-    elif ttc < 6.0:
-        risk_ttc = 5
-    elif ttc < 8.0:
-        risk_ttc = 2
-    else:
-        risk_ttc = 0
-
-    # Speed contribution (20% weight).
-    if speed_mps < 0.15:
-        risk_speed = 0      # near-static, likely noise
-    elif speed_mps < 0.4:
-        risk_speed = 2      # slow drift / creeping
-    elif speed_mps < 0.8:
-        risk_speed = 5      # moderate approach (slow walk)
-    elif speed_mps < 1.5:
-        risk_speed = 7      # fast approach (brisk walk)
-    else:
-        risk_speed = 10     # very fast (running / vehicle)
-
-    # Distance contribution (20% weight) — uses the shared distance-risk component.
-    risk_dist = distance_risk(distance_m)
-
-    risk = round(0.6 * risk_ttc + 0.2 * risk_speed + 0.2 * risk_dist)
-    risk = int(max(0, min(10, risk)))
-
-    # Ensure a critical close distance cannot be masked by low TTC/speed.
-    risk = max(risk, risk_dist)
-
+        risk = min(10, risk + 2)
     return int(risk), float(ttc)
 
 
