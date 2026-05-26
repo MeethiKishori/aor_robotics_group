@@ -1,36 +1,77 @@
+import os
 import cv2
 import numpy as np
+import yaml
 
+
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+HSV_CONFIG_PATH = os.path.join(THIS_DIR, "hsv_config.yaml")
 
 # HSV = Hue, Saturation, Value.
 #   H = color itself  (0-180 in OpenCV; red is near 0 AND near 180, so two ranges needed)
-#   S = how vivid - saturation    (0=grey, 255=pure color)
+#   S = how vivid     (0=grey, 255=pure color)
 #   V = brightness    (0=black, 255=bright)
-#
-# cv2.inRange keeps only pixels where all three values fall between LOWER and UPPER. white is true
-# Everything outside becomes 0 (black in the mask).
 
-# Red range 1: hue 0-10 (orange-red side)
-LOWER_RED_1 = np.array([0,   120,  70], dtype=np.uint8)
-UPPER_RED_1 = np.array([10,  255, 255], dtype=np.uint8)
-
-# Red range 2: hue 170-180 (pink-red side, same physical red wraps around)
-LOWER_RED_2 = np.array([170, 120,  70], dtype=np.uint8)
-UPPER_RED_2 = np.array([180, 255, 255], dtype=np.uint8)
-
-# Black: any hue, any saturation, but very low brightness
-LOWER_BLACK = np.array([0,   0,   0], dtype=np.uint8)
-UPPER_BLACK = np.array([180, 255, 55], dtype=np.uint8)
-
-# Morphology kernel — removes noise dots and fills small holes in masks
 KERNEL = np.ones((5, 5), np.uint8)
+
+# Fallback values used only when hsv_config.yaml does not exist yet.
+# Edit hsv_config.yaml (created on first quit) to change any of these.
+# Values marked (slider) are also overridden live by the slider windows.
+_DEFAULTS = {
+    "red": {
+        "hue1_low":  0,    # orange-red lower hue edge  (slider)
+        "hue1_high": 10,   # orange-red upper hue edge
+        "hue2_low":  170,  # pink-red   lower hue edge  (slider)
+        "hue2_high": 180,  # pink-red   upper hue edge
+        "sat_min":   120,  # min saturation             (slider)
+        "sat_max":   255,  # max saturation
+        "val_min":   70,   # min brightness             (slider)
+        "val_max":   255,  # max brightness
+    },
+    "black": {
+        "hue_low":  0,     # lower hue (any hue counts as black)
+        "hue_high": 180,   # upper hue
+        "sat_min":  0,     # min saturation
+        "sat_max":  255,   # max saturation             (slider)
+        "val_min":  0,     # min brightness
+        "val_max":  55,    # max brightness / darkness  (slider)
+    },
+    "detection": {
+        "min_area": 300,   # minimum blob pixel area    (slider)
+    },
+}
+
+
+def load_hsv_config():
+    if os.path.exists(HSV_CONFIG_PATH):
+        with open(HSV_CONFIG_PATH, "r") as f:
+            cfg = yaml.safe_load(f) or {}
+        print(f"Loaded HSV config from {HSV_CONFIG_PATH}")
+    else:
+        cfg = {}
+        print(f"No config found at {HSV_CONFIG_PATH} — using defaults.")
+    r = {**_DEFAULTS["red"],       **cfg.get("red", {})}
+    b = {**_DEFAULTS["black"],     **cfg.get("black", {})}
+    d = {**_DEFAULTS["detection"], **cfg.get("detection", {})}
+    return r, b, d
+
+
+def save_hsv_config(r_cfg, b_cfg, d_cfg):
+    cfg = {"red": dict(r_cfg), "black": dict(b_cfg), "detection": dict(d_cfg)}
+    with open(HSV_CONFIG_PATH, "w") as f:
+        yaml.dump(cfg, f, default_flow_style=False)
+    print(f"HSV config saved to {HSV_CONFIG_PATH}")
+
+
+# Load YAML once at import; mask functions use these as defaults.
+_r_cfg, _b_cfg, _d_cfg = load_hsv_config()
 
 
 def _mask_red(hsv_img, lower1=None, upper1=None, lower2=None, upper2=None):
-    l1 = lower1 if lower1 is not None else LOWER_RED_1
-    u1 = upper1 if upper1 is not None else UPPER_RED_1
-    l2 = lower2 if lower2 is not None else LOWER_RED_2
-    u2 = upper2 if upper2 is not None else UPPER_RED_2
+    l1 = lower1 if lower1 is not None else np.array([_r_cfg["hue1_low"],  _r_cfg["sat_min"], _r_cfg["val_min"]], dtype=np.uint8)
+    u1 = upper1 if upper1 is not None else np.array([_r_cfg["hue1_high"], _r_cfg["sat_max"], _r_cfg["val_max"]], dtype=np.uint8)
+    l2 = lower2 if lower2 is not None else np.array([_r_cfg["hue2_low"],  _r_cfg["sat_min"], _r_cfg["val_min"]], dtype=np.uint8)
+    u2 = upper2 if upper2 is not None else np.array([_r_cfg["hue2_high"], _r_cfg["sat_max"], _r_cfg["val_max"]], dtype=np.uint8)
     m = cv2.bitwise_or(cv2.inRange(hsv_img, l1, u1), cv2.inRange(hsv_img, l2, u2))
     m = cv2.morphologyEx(m, cv2.MORPH_OPEN,  KERNEL)
     m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, KERNEL)
@@ -38,8 +79,8 @@ def _mask_red(hsv_img, lower1=None, upper1=None, lower2=None, upper2=None):
 
 
 def _mask_black(hsv_img, lower=None, upper=None):
-    l = lower if lower is not None else LOWER_BLACK
-    u = upper if upper is not None else UPPER_BLACK
+    l = lower if lower is not None else np.array([_b_cfg["hue_low"],  _b_cfg["sat_min"], _b_cfg["val_min"]], dtype=np.uint8)
+    u = upper if upper is not None else np.array([_b_cfg["hue_high"], _b_cfg["sat_max"], _b_cfg["val_max"]], dtype=np.uint8)
     m = cv2.inRange(hsv_img, l, u)
     m = cv2.morphologyEx(m, cv2.MORPH_OPEN,  KERNEL)
     m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, KERNEL)

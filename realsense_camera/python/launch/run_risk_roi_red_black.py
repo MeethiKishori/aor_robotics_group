@@ -4,9 +4,8 @@ import argparse
 
 import cv2
 import numpy as np
-import yaml
 
-# Allow imports from ../perception when run as a script. it helps in running script from anywhere without worrying is im at correct cd 
+# Allow imports from ../perception when run as a script. it helps in running script from anywhere without worrying is im at correct cd
 THIS_DIR   = os.path.dirname(os.path.abspath(__file__)) # curret file to absolute path from root , keeps only the folder name uptill launch THIS_DIR: "/home/ssingh/.../realsense_camera/python/launch"
 PYTHON_DIR = os.path.dirname(THIS_DIR)  # it takes the directory name just one folder up PYTHON_DIR: "/home/ssingh/.../realsense_camera/python"
 if PYTHON_DIR not in sys.path:
@@ -14,8 +13,7 @@ if PYTHON_DIR not in sys.path:
 
 from perception.red_black_roi import (
     detect_red_black_in_roi,
-    LOWER_RED_1, UPPER_RED_1, LOWER_RED_2, UPPER_RED_2,
-    LOWER_BLACK, UPPER_BLACK,
+    load_hsv_config, save_hsv_config,
 )
 from actuators.tower import SignalTowerController
 from camera.realsense_stream import start_aligned_pipeline
@@ -29,48 +27,11 @@ from risk.runtime import RiskRuntimeState
 
 
 # ──────────────────────────────────────────────
-# HSV SLIDER WINDOWS  +  YAML CONFIG PERSISTENCE
+# HSV SLIDER WINDOWS
 # ──────────────────────────────────────────────
 
 WIN_RED   = 'Tune RED'
 WIN_BLACK = 'Tune BLACK'
-
-# Config file sits next to this launch script so it's easy to find and edit.
-HSV_CONFIG_PATH = os.path.join(THIS_DIR, "hsv_config.yaml")
-
-_DEFAULTS = {
-    "red":        {"hue1_low": int(LOWER_RED_1[0]), "hue2_low": int(LOWER_RED_2[0]),
-                   "sat_min":  int(LOWER_RED_1[1]), "val_min":  int(LOWER_RED_1[2])},
-    "black":      {"sat_max": int(UPPER_BLACK[1]), "val_max": int(UPPER_BLACK[2])},
-    "detection":  {"min_area": 300},
-}
-
-
-def load_hsv_config():
-    if os.path.exists(HSV_CONFIG_PATH):
-        with open(HSV_CONFIG_PATH, "r") as f:
-            cfg = yaml.safe_load(f) or {}
-        print(f"Loaded HSV config from {HSV_CONFIG_PATH}")
-    else:
-        cfg = {}
-        print(f"No config found at {HSV_CONFIG_PATH} — using defaults.")
-    # Merge with defaults so missing keys never crash.
-    r = {**_DEFAULTS["red"],       **cfg.get("red", {})}
-    b = {**_DEFAULTS["black"],     **cfg.get("black", {})}
-    d = {**_DEFAULTS["detection"], **cfg.get("detection", {})}
-    return r, b, d
-
-
-def save_hsv_config(h_l1, h_l2, s_min, v_min, b_sat, b_val, min_area):
-    cfg = {
-        "red":       {"hue1_low": h_l1, "hue2_low": h_l2,
-                      "sat_min":  s_min, "val_min":  v_min},
-        "black":     {"sat_max": b_sat, "val_max": b_val},
-        "detection": {"min_area": min_area},
-    }
-    with open(HSV_CONFIG_PATH, "w") as f:
-        yaml.dump(cfg, f, default_flow_style=False)
-    print(f"HSV config saved to {HSV_CONFIG_PATH}")
 
 
 def create_sliders(r, b, d):
@@ -283,12 +244,12 @@ def main():
 
             # Read slider values and build HSV override arrays
             h_l1, h_l2, s_min, v_min, b_sat, b_val, min_area = read_sliders()
-            red_lower1 = np.array([h_l1, s_min, v_min], dtype=np.uint8)
-            red_upper1 = np.array([20,   255,   255],   dtype=np.uint8)
-            red_lower2 = np.array([h_l2, s_min, v_min], dtype=np.uint8)
-            red_upper2 = np.array([180,  255,   255],   dtype=np.uint8)
-            blk_lower  = np.array([0,    0,     0],     dtype=np.uint8)
-            blk_upper  = np.array([180,  b_sat, b_val], dtype=np.uint8)
+            red_lower1 = np.array([h_l1,                  s_min,              v_min],              dtype=np.uint8)
+            red_upper1 = np.array([r_cfg["hue1_high"],     r_cfg["sat_max"],   r_cfg["val_max"]],   dtype=np.uint8)
+            red_lower2 = np.array([h_l2,                  s_min,              v_min],              dtype=np.uint8)
+            red_upper2 = np.array([r_cfg["hue2_high"],     r_cfg["sat_max"],   r_cfg["val_max"]],   dtype=np.uint8)
+            blk_lower  = np.array([b_cfg["hue_low"],       b_cfg["sat_min"],   b_cfg["val_min"]],   dtype=np.uint8)
+            blk_upper  = np.array([b_cfg["hue_high"],      b_sat,              b_val],              dtype=np.uint8)
 
             detections, red_mask, black_mask = detect_red_black_in_roi(
                 frame, depth_src, roi, min_area,
@@ -407,10 +368,13 @@ def main():
                 break
 
     finally:
-        # Save slider values so next run starts from where you left off.
+        # Save all config (slider values merged into loaded dicts) so next run starts from here.
         try:
             h_l1, h_l2, s_min, v_min, b_sat, b_val, min_area = read_sliders()
-            save_hsv_config(h_l1, h_l2, s_min, v_min, b_sat, b_val, min_area)
+            r_cfg.update({"hue1_low": h_l1, "hue2_low": h_l2, "sat_min": s_min, "val_min": v_min})
+            b_cfg.update({"sat_max": b_sat, "val_max": b_val})
+            d_cfg["min_area"] = min_area
+            save_hsv_config(r_cfg, b_cfg, d_cfg)
         except Exception:
             pass
         if tower:
