@@ -12,12 +12,12 @@ HSV_CONFIG_PATH = os.path.join(THIS_DIR, "hsv_config.yaml")
 #   S = how vivid     (0=grey, 255=pure color)
 #   V = brightness    (0=black, 255=bright)
 
-KERNEL = np.ones((5, 5), np.uint8)
+
 
 # Fallback values used only when hsv_config.yaml does not exist yet.
 # Edit hsv_config.yaml (created on first quit) to change any of these.
 # Values marked (slider) are also overridden live by the slider windows.
-_DEFAULTS = {
+_DEFAULTS = {  # dictionary of default HSV config values; also serves as a template for the YAML file structure
     "red": {
         "hue1_low":  0,    # orange-red lower hue edge  (slider)
         "hue1_high": 10,   # orange-red upper hue edge
@@ -43,13 +43,8 @@ _DEFAULTS = {
 
 
 def load_hsv_config():
-    if os.path.exists(HSV_CONFIG_PATH):
-        with open(HSV_CONFIG_PATH, "r") as f:
-            cfg = yaml.safe_load(f) or {}
-        print(f"Loaded HSV config from {HSV_CONFIG_PATH}")
-    else:
-        cfg = {}
-        print(f"No config found at {HSV_CONFIG_PATH} — using defaults.")
+    with open(HSV_CONFIG_PATH, "r") as f: # returns sting content of the file
+        cfg = yaml.safe_load(f) or {} # parse YAML string into Python dict; if file is empty, use empty dict
     r = {**_DEFAULTS["red"],       **cfg.get("red", {})}
     b = {**_DEFAULTS["black"],     **cfg.get("black", {})}
     d = {**_DEFAULTS["detection"], **cfg.get("detection", {})}
@@ -72,19 +67,13 @@ def _mask_red(hsv_img, lower1=None, upper1=None, lower2=None, upper2=None):
     u1 = upper1 if upper1 is not None else np.array([_r_cfg["hue1_high"], _r_cfg["sat_max"], _r_cfg["val_max"]], dtype=np.uint8)
     l2 = lower2 if lower2 is not None else np.array([_r_cfg["hue2_low"],  _r_cfg["sat_min"], _r_cfg["val_min"]], dtype=np.uint8)
     u2 = upper2 if upper2 is not None else np.array([_r_cfg["hue2_high"], _r_cfg["sat_max"], _r_cfg["val_max"]], dtype=np.uint8)
-    m = cv2.bitwise_or(cv2.inRange(hsv_img, l1, u1), cv2.inRange(hsv_img, l2, u2))
-    m = cv2.morphologyEx(m, cv2.MORPH_OPEN,  KERNEL)
-    m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, KERNEL)
-    return m
+    return cv2.bitwise_or(cv2.inRange(hsv_img, l1, u1), cv2.inRange(hsv_img, l2, u2))
 
 
 def _mask_black(hsv_img, lower=None, upper=None):
     l = lower if lower is not None else np.array([_b_cfg["hue_low"],  _b_cfg["sat_min"], _b_cfg["val_min"]], dtype=np.uint8)
     u = upper if upper is not None else np.array([_b_cfg["hue_high"], _b_cfg["sat_max"], _b_cfg["val_max"]], dtype=np.uint8)
-    m = cv2.inRange(hsv_img, l, u)
-    m = cv2.morphologyEx(m, cv2.MORPH_OPEN,  KERNEL)
-    m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, KERNEL)
-    return m
+    return cv2.inRange(hsv_img, l, u)
 
 
 def _depth_median(depth_frame, x, y, w, h, width, height):
