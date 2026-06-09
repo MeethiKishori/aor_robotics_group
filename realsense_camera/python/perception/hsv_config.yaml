@@ -11,8 +11,8 @@ red:
   hue1_high: 10
   hue1_low: 0
   hue2_high: 180
-  hue2_low: 109
+  hue2_low: 114
   sat_max: 255
-  sat_min: 139
+  sat_min: 35
   val_max: 255
-  val_min: 21
+  val_min: 119
