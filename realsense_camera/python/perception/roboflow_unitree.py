@@ -1,7 +1,7 @@
 from ultralytics import YOLO
 import cv2
 
-IMAGE_PATH   = "/home/ssingh/Finroc/singh_files/aor_robotics_group/recordings/dog_human3.webp"
+IMAGE_PATH   = "/home/ssingh/Finroc/singh_files/aor_robotics_group/recordings/dog3.jpeg"
 MODEL_PATH   = "/home/ssingh/Finroc/singh_files/aor_robotics_group/realsense_camera/models/best.pt"  # custom-trained on Unitree Go1 robot
 
 model_unitree = YOLO(MODEL_PATH)
