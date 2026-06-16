@@ -1,0 +1,68 @@
+# Ideas & Future Progress
+# detailed notes/learnings are in: learnings/
+
+---
+
+## Risk Scoring — Theory & Design
+
+### 1. Spatial and Hazard Representation
+
+- Define an ROI of ~30–40% of the depth frame (center region in front of robot).
+- For each detected object `i` in the ROI, extract:
+  - Hazard category `c_i` (e.g. human, vehicle, static obstacle)
+  - Minimum distance `d_i` to the robot footprint
+
+How to identify objects?
+  1. Deep Learning-Based Object Detection (RGB) --> YOLO, SSD, TensorFlow Lite / OpenVINO, you get category hazard weight ($w(c_i)$).
+  2. RGB-D Fusion (Spatial Detection) --> Pointcloud Segmentation, Frustum PointNets, you get  distance ($d_i$).
+  3. Motion-Based Identification, you get motion influence ($\alpha \cdot \hat{v}$) , Optical Flow, SORT / DeepSORT
+  4. Geometric & Heuristic Filtering , save compute, Voxel Grid Filtering, Euclidean Cluster Extraction(good)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### 2. Runtime Risk Evaluation
+
+Per-object risk contribution:
+
+  R_i = w(c_i) · g(d_i) · (1 + α · v̂)
+
+- `w(c_i)` — category hazard weight (humans > vehicles > static objects)
+- `g(d_i)` — distance-based risk function (higher risk when closer)
+- `v̂ = v_robot / v_max` — normalized robot speed
+- `α` — scaling factor for motion influence
+
+Hazard categories (by severity):
+1. Humans / animals
+2. Moving objects (vehicles, other robots)
+3. Static objects (walls, furniture)
+
+When multiple hazards are present, use conservative aggregation:
+
+  R_env = max(R_i)
+
+### 3. Risk State Mapping
+
+Map continuous `R_env` to discrete states:
+
+  S ∈ { none, low, medium, high, extreme }
+
+---
+
+## Future Work
+
+- [ ] Add acoustic alerts for extreme risk states
+- [ ] Extend to full 360° coverage using additional depth sensors
+- [ ] Use semantic object detection to assign hazard categories automatically
+- [ ] Tune `α` and `w(c_i)` weights from real robot test data
