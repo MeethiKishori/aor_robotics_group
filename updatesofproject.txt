@@ -1,0 +1,10 @@
+ 
+project doesnt run when camera is not plugged and done in between - he lamp's serial device is opened once, at startup (in the gHardwareInterface constructor). There's no hot-plug re-scan, so plugging it in later does nothing until you restart.
+
+Fix:
+
+Plug the CH341 lamp in first, then start ScoutControl.
+
+ls /dev/ttyUSB*        # should list ttyUSB0 (and ttyUSB1 for two lamps)
+
+1. it measures closest among all detection , so if among a,b,c,d : a is near it points to a, even if b is coming out faster.

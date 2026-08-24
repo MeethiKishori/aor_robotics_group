@@ -1,0 +1,5 @@
+classes = 1
+train = /home/ssingh/Finroc/singh_files/aor_robotics_group/realsense_camera/darknet_unitree/train.txt
+valid = /home/ssingh/Finroc/singh_files/aor_robotics_group/realsense_camera/darknet_unitree/valid.txt
+names = /home/ssingh/Finroc/singh_files/aor_robotics_group/realsense_camera/darknet_unitree/obj.names
+backup = /home/ssingh/Finroc/singh_files/aor_robotics_group/realsense_camera/darknet_unitree/backup

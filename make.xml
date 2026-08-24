@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<targets>
+  <finrocprogram name="ScoutControl">
+    <sources>
+      pScoutControl.cpp
+    </sources>
+  </finrocprogram>
+  
+  <finroclibrary name="control">
+    <sources>
+      gScoutControl.cpp
+    </sources>
+  </finroclibrary>
+
+  <finroclibrary name="hardware_interface">
+    <sources>
+      hardware/gHardwareInterface.cpp
+    </sources>
+  </finroclibrary>
+
+  <finroclibrary name="safety_demo">
+    <sources>
+      safety_demo/gSafetyDemo.cpp
+      safety_demo/mPercept.cpp
+      safety_demo/mRiskAssessment.cpp
+      safety_demo/mRiskToLampIndicator.cpp
+      safety_demo/mRiskVisualization.cpp
+    </sources>
+  </finroclibrary>
+  
+</targets>

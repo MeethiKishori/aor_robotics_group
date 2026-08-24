@@ -1,0 +1,14 @@
+third_party/darknet/*.so
+third_party/darknet/*.a
+third_party/darknet/*.o
+third_party/darknet/**/*.o
+third_party/darknet/obj/
+third_party/darknet/build/
+third_party/darknet/*.weights
+realsense_camera/realsense_env
+realsense_camera/librealsense
+realsense_camera/build
+.DS_Store
+
+# large recordings - keep out of git
+*.mp4

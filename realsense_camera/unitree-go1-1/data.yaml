@@ -1,0 +1,12 @@
+names:
+- unitree-go1-robot
+nc: 1
+roboflow:
+  license: CC BY 4.0
+  project: unitree-go1-ba7qp
+  url: https://universe.roboflow.com/shubham-8f3y0/unitree-go1-ba7qp/dataset/1
+  version: 1
+  workspace: shubham-8f3y0
+test: ../test/images
+train: ../train/images
+val: ../valid/images
